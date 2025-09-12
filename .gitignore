@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Poetry
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+kerberos_test.log
+
+# Temporary files
+temp_*.py
+*.tmp
+*.bak
+
+# Sensitive files (already tracked, but good practice)
+*.keytab
+krb5.conf
+
+reference/*
+
+.env
+
+.cursor
