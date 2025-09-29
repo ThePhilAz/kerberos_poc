@@ -1,54 +1,48 @@
 """
-HTTP client with Kerberos authentication for proxy testing
-Replicates the functionality of the Java ProxyKerberosConfiguration
+HTTP client with multiple authentication methods for proxy testing
+Supports Kerberos, SSL certificate, and username/password authentication
 """
 
 import requests
-from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 import logging
-from kerberos_poc.kerberos_service import KerberosService
+from typing import Optional
+from kerberos_poc.auth_methods import AuthenticationMethod, KerberosAuthentication
 from kerberos_poc.config import PROXY_HOST, PROXY_PORT, CUSTOM_HEADERS
 
 logger = logging.getLogger(__name__)
 
 
-class ProxyKerberosClient:
+class ProxyClient:
     """
-    HTTP client configured for Kerberos authentication through proxy
-    Equivalent to the Java HttpClient configuration
+    HTTP client configured for multiple authentication methods through proxy
+    Supports Kerberos, SSL certificate, and username/password authentication
     """
 
-    def __init__(self):
+    def __init__(self, auth_method: Optional[AuthenticationMethod] = None):
         self.proxy_host = PROXY_HOST
         self.proxy_port = PROXY_PORT
-        self.kerberos_service = KerberosService()
+        self.auth_method = auth_method
         self.session = None
 
     def create_authenticated_session(self):
         """
-        Create a requests session with Kerberos authentication
-        Equivalent to the Java httpClient() bean configuration
+        Create a requests session with the configured authentication method
         """
         try:
-            # Authenticate with Kerberos using keytab - this populates the credential cache
-            logger.info("Authenticating with Kerberos using keytab...")
-            credentials = self.kerberos_service.authenticate()
-            
-            # Store credentials for potential reuse
-            self.credentials = credentials
-            logger.info("Successfully obtained Kerberos credentials")
-            logger.info(f"Principal: {credentials.name if hasattr(credentials, 'name') else 'authenticated principal'}")
-            logger.info(f"Credential lifetime: {credentials.lifetime if hasattr(credentials, 'lifetime') else 'unknown'} seconds")
+            if self.auth_method is None:
+                raise ValueError(
+                    "No authentication method configured. Please provide an AuthenticationMethod instance."
+                )
+
+            logger.info(
+                f"Creating authenticated session using: {self.auth_method.get_auth_name()}"
+            )
 
             # Create session
             session = requests.Session()
 
-            # Configure Kerberos authentication - requests-kerberos will use the credential cache
-            # that was populated by our gssapi authentication above
-            kerberos_auth = HTTPKerberosAuth(mutual_authentication=OPTIONAL)
-            session.auth = kerberos_auth
-            
-            logger.info("Configured requests-kerberos to use populated credential cache")
+            # Configure authentication using the provided method
+            session = self.auth_method.authenticate_session(session)
 
             # Configure proxy
             proxy_url = f"http://{self.proxy_host}:{self.proxy_port}"
@@ -57,10 +51,11 @@ class ProxyKerberosClient:
             # Add custom headers (equivalent to the Java HttpRequestInterceptor)
             session.headers.update(CUSTOM_HEADERS)
 
-            # Configure session for Kerberos
+            # Configure session settings
             session.trust_env = False  # Don't use environment proxy settings
 
             logger.info(f"Created authenticated session with proxy: {proxy_url}")
+            logger.info(f"Authentication method: {self.auth_method.get_auth_name()}")
             logger.info(f"Custom headers: {CUSTOM_HEADERS}")
 
             self.session = session
@@ -122,3 +117,26 @@ class ProxyKerberosClient:
         if self.session:
             self.session.close()
             logger.info("Session closed")
+
+
+# Backward compatibility - create a Kerberos-specific client
+class ProxyKerberosClient(ProxyClient):
+    """
+    Backward compatible Kerberos-specific proxy client
+    """
+
+    def __init__(self, principal: str, keytab_path: str, krb5_conf_path: str):
+        """
+        Initialize with Kerberos authentication
+
+        Args:
+            principal: Kerberos principal (if None, uses config)
+            keytab_path: Path to keytab file (if None, uses config)
+            krb5_conf_path: Path to krb5.conf file (if None, uses config)
+        """
+
+        # Create Kerberos authentication method
+        auth_method = KerberosAuthentication(principal, keytab_path, krb5_conf_path)
+
+        # Initialize parent with Kerberos authentication
+        super().__init__(auth_method=auth_method)

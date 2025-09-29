@@ -8,44 +8,59 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env file from project root
-env_path = Path(__file__).parent.parent / '.env'
+env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
+
 
 class ConfigError(Exception):
     """Raised when required configuration is missing"""
+
     pass
+
 
 def get_required_env(key: str) -> str:
     """Get required environment variable or raise ConfigError"""
     value = os.getenv(key)
     if value is None:
-        raise ConfigError(f"Required environment variable '{key}' is not set. Please check your .env file.")
+        raise ConfigError(
+            f"Required environment variable '{key}' is not set. Please check your .env file."
+        )
     return value
+
 
 def get_optional_env(key: str, default: str | None = None) -> str | None:
     """Get optional environment variable with optional default"""
     return os.getenv(key, default)
+
 
 def get_bool_env(key: str, required: bool = False) -> bool:
     """Get boolean environment variable"""
     value = os.getenv(key)
     if value is None:
         if required:
-            raise ConfigError(f"Required environment variable '{key}' is not set. Please check your .env file.")
+            raise ConfigError(
+                f"Required environment variable '{key}' is not set. Please check your .env file."
+            )
         return False
-    return value.lower() in ('true', '1', 'yes', 'on')
+    return value.lower() in ("true", "1", "yes", "on")
+
 
 def get_int_env(key: str, required: bool = True) -> int | None:
     """Get integer environment variable"""
     value = os.getenv(key)
     if value is None:
         if required:
-            raise ConfigError(f"Required environment variable '{key}' is not set. Please check your .env file.")
+            raise ConfigError(
+                f"Required environment variable '{key}' is not set. Please check your .env file."
+            )
         return None
     try:
         return int(value)
     except ValueError:
-        raise ConfigError(f"Environment variable '{key}' must be a valid integer, got: {value}")
+        raise ConfigError(
+            f"Environment variable '{key}' must be a valid integer, got: {value}"
+        )
+
 
 # Required configuration
 try:
@@ -73,12 +88,33 @@ try:
     else:
         LOG_LEVEL = "INFO"
 
+    # SSL Certificate authentication (optional)
+    SSL_CERT_PATH = get_optional_env("SSL_CERT_PATH")
+    SSL_KEY_PATH = get_optional_env("SSL_KEY_PATH")
+    SSL_CA_BUNDLE_PATH = get_optional_env("SSL_CA_BUNDLE_PATH")
+
+    # Username/Password authentication (optional)
+    AUTH_USERNAME = get_optional_env("AUTH_USERNAME")
+    AUTH_PASSWORD = get_optional_env("AUTH_PASSWORD")
+
+    # Authentication method selection
+    auth_method: str = get_optional_env("AUTH_METHOD") or "kerberos"
+    AUTH_METHOD: str = auth_method.lower() if auth_method else "kerberos"
+
+    # Google Search API Configuration (optional)
+    GOOGLE_SEARCH_API_KEY = get_optional_env("GOOGLE_SEARCH_API_KEY")
+    GOOGLE_SEARCH_ENGINE_ID = get_optional_env("GOOGLE_SEARCH_ENGINE_ID")
+    GOOGLE_SEARCH_CONTEXT = get_optional_env("GOOGLE_SEARCH_CONTEXT", "test search")
+    GOOGLE_SEARCH_URL = get_optional_env(
+        "GOOGLE_SEARCH_URL", "https://www.googleapis.com/customsearch/v1"
+    )
+
     # Derived configuration
     CUSTOM_HEADERS = {"ApplicationName": APPLICATION_NAME}
 
 except ConfigError as e:
     print(f"❌ Configuration Error: {e}")
-    print("💡 Please create a .env file based on .env.example")
-    print("   cp .env.example .env")
+    print("💡 Please create a .env file based on env.example")
+    print("   cp env.example .env")
     print("   # Then edit .env with your values")
     raise SystemExit(1)
