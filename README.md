@@ -143,6 +143,7 @@ Each authentication method has its own dedicated test script that performs two t
 | `test_kerberos.py` | Kerberos (keytab) | Keytab file, krb5.conf |
 | `test_ssl.py` | SSL Certificate | Client cert, private key, CA bundle |
 | `test_basic_auth.py` | Username/Password | Username, password |
+| `test_basic_auth.py --no-auth` | No Authentication (CA Bundle) | CA bundle (optional) |
 
 ### Running Tests
 
@@ -183,6 +184,21 @@ poetry run python test_basic_auth.py --username myuser
 
 # Test with httpbin basic auth endpoint
 poetry run python test_basic_auth.py --username testuser --password testpass --url https://httpbin.org/basic-auth/testuser/testpass
+```
+
+#### 4. No Authentication Test (CA Bundle Verification Only)
+```bash
+# No authentication with custom CA bundle
+poetry run python test_basic_auth.py --no-auth --ca-bundle /path/to/ca-bundle.pem
+
+# No authentication with system default CA bundle
+poetry run python test_basic_auth.py --no-auth
+
+# With debug logging
+poetry run python test_basic_auth.py --no-auth --ca-bundle /path/to/ca-bundle.pem --debug
+
+# Using CA bundle from .env configuration
+poetry run python test_basic_auth.py --no-auth
 ```
 
 ### Common Options
@@ -251,16 +267,18 @@ from kerberos_poc.proxy_client import ProxyClient, ProxyKerberosClient
 from kerberos_poc.auth_methods import (
     KerberosAuthentication, 
     SSLCertificateAuthentication, 
-    UsernamePasswordAuthentication
+    UsernamePasswordAuthentication,
+    NoAuthentication
 )
 
 # Method 1: Using specific authentication classes
 kerberos_auth = KerberosAuthentication("user@REALM.COM", "./service.keytab", "./krb5.conf")
 ssl_auth = SSLCertificateAuthentication("./cert.pem", "./key.pem", "./ca.pem")
 basic_auth = UsernamePasswordAuthentication("username", "password")
+no_auth = NoAuthentication("/path/to/ca-bundle.pem")  # or NoAuthentication() for system default
 
 # Create client with chosen authentication
-client = ProxyClient(auth_method=kerberos_auth)  # or ssl_auth, basic_auth
+client = ProxyClient(auth_method=kerberos_auth)  # or ssl_auth, basic_auth, no_auth
 client.create_authenticated_session()
 
 # Method 2: Using backward-compatible Kerberos client

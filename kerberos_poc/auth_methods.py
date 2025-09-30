@@ -7,8 +7,9 @@ import logging
 import requests
 from abc import ABC, abstractmethod
 from requests_kerberos import HTTPKerberosAuth, OPTIONAL
-from requests.auth import HTTPBasicAuth
 from kerberos_poc.kerberos_service import KerberosService
+from requests.auth import HTTPBasicAuth
+
 
 logger = logging.getLogger(__name__)
 
@@ -141,9 +142,6 @@ class UsernamePasswordAuthentication(AuthenticationMethod):
         self.username = username
         self.password = password
 
-        if not username or not password:
-            raise ValueError("Both username and password must be provided")
-
     def authenticate_session(self, session: requests.Session) -> requests.Session:
         """Configure session with username/password authentication"""
         try:
@@ -207,3 +205,40 @@ class DigestAuthentication(AuthenticationMethod):
 
     def get_auth_name(self) -> str:
         return "Username/Password (HTTP Digest Auth)"
+
+
+class NoAuthentication(AuthenticationMethod):
+    """No authentication - just custom CA bundle for server verification"""
+    
+    def __init__(self, ca_bundle_path: str | None = None):
+        """
+        Initialize no authentication with optional CA bundle
+        
+        Args:
+            ca_bundle_path: Path to CA bundle file for server verification - if None, uses system default
+        """
+        self.ca_bundle_path = ca_bundle_path
+    
+    def authenticate_session(self, session: requests.Session) -> requests.Session:
+        """Configure session with no authentication but custom CA bundle"""
+        try:
+            logger.info("Configuring no authentication (CA bundle verification only)...")
+            
+            # Set CA bundle for server verification
+            if self.ca_bundle_path:
+                session.verify = self.ca_bundle_path
+                logger.info(f"Using CA bundle for server verification: {self.ca_bundle_path}")
+            else:
+                # Use system default CA bundle
+                session.verify = True
+                logger.info("Using system default CA bundle for server verification")
+            
+            logger.info("Successfully configured no authentication with CA bundle verification")
+            return session
+            
+        except Exception as e:
+            logger.error(f"Failed to configure no authentication: {str(e)}")
+            raise
+    
+    def get_auth_name(self) -> str:
+        return "No Authentication (CA Bundle Verification)"
