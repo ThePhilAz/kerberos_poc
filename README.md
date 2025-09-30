@@ -273,9 +273,9 @@ from kerberos_poc.auth_methods import (
 
 # Method 1: Using specific authentication classes
 kerberos_auth = KerberosAuthentication("user@REALM.COM", "./service.keytab", "./krb5.conf")
-ssl_auth = SSLCertificateAuthentication("./cert.pem", "./key.pem", "./ca.pem")
+ssl_auth = SSLCertificateAuthentication("./cert.pem", "./key.pem")  # CA bundle handled globally
 basic_auth = UsernamePasswordAuthentication("username", "password")
-no_auth = NoAuthentication("/path/to/ca-bundle.pem")  # or NoAuthentication() for system default
+no_auth = NoAuthentication()  # CA bundle handled globally by ProxyClient
 
 # Create client with chosen authentication
 client = ProxyClient(auth_method=kerberos_auth)  # or ssl_auth, basic_auth, no_auth

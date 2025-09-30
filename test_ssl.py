@@ -67,18 +67,14 @@ def main():
     assert cert_path, (
         "Certificate path is required. Use --cert-path or set SSL_CERT_PATH in config."
     )
-    assert key_path, (
-        "Key path is required. Use --key-path or set SSL_KEY_PATH in config."
-    )
-    assert ca_bundle_path, (
-        "CA bundle path is required. Use --ca-bundle or set SSL_CA_BUNDLE_PATH in config."
-    )
+    # Note: key_path and ca_bundle_path are optional
+    # CA bundle is now handled globally by ProxyClient
 
     # Print test header
     auth_details = {
         "Certificate": cert_path,
         "Private key": key_path if key_path else "Combined with certificate",
-        "CA bundle": ca_bundle_path if ca_bundle_path else "System default",
+        "CA bundle": ca_bundle_path if ca_bundle_path else "System default (global)",
     }
     print_test_header(
         "🔒 SSL Certificate Authentication Test",
@@ -92,7 +88,7 @@ def main():
     try:
         # Initialize SSL certificate authentication
         logger.info("🚀 Initializing SSL certificate authentication...")
-        auth_method = SSLCertificateAuthentication(cert_path, key_path, ca_bundle_path)
+        auth_method = SSLCertificateAuthentication(cert_path, key_path)
         client = ProxyClient(auth_method=auth_method)
 
         # Create authenticated session

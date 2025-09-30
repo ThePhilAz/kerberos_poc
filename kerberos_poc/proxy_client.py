@@ -7,7 +7,7 @@ import requests
 import logging
 from typing import Optional
 from kerberos_poc.auth_methods import AuthenticationMethod, KerberosAuthentication
-from kerberos_poc.config import PROXY_HOST, PROXY_PORT, CUSTOM_HEADERS
+from kerberos_poc.config import PROXY_HOST, PROXY_PORT, CUSTOM_HEADERS, SSL_CA_BUNDLE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,12 @@ class ProxyClient:
             # Configure authentication using the provided method
             session = self.auth_method.authenticate_session(session)
 
-            # Configure proxy
-            proxy_url = f"http://{self.proxy_host}:{self.proxy_port}"
+            # Configure proxy with authentication if needed
+            proxy_url = self._build_proxy_url(session)
             session.proxies = {"http": proxy_url, "https": proxy_url}
+
+            # Configure CA bundle for proxy SSL verification (applies to all auth methods)
+            self._configure_ca_bundle(session)
 
             # Add custom headers (equivalent to the Java HttpRequestInterceptor)
             session.headers.update(CUSTOM_HEADERS)
@@ -117,6 +120,30 @@ class ProxyClient:
         if self.session:
             self.session.close()
             logger.info("Session closed")
+
+    def _build_proxy_url(self, session: requests.Session) -> str:
+        """Build proxy URL with authentication if needed"""
+        # Check if auth method provides proxy credentials
+        assert self.auth_method is not None, "Authentication method is not configured"
+        proxy_auth = self.auth_method.get_proxy_auth()
+        if proxy_auth:
+            username, password = proxy_auth
+            proxy_url = f"http://{username}:{password}@{self.proxy_host}:{self.proxy_port}"
+            logger.info(f"Using proxy with authentication: {username}@{self.proxy_host}:{self.proxy_port}")
+        else:
+            proxy_url = f"http://{self.proxy_host}:{self.proxy_port}"
+            logger.info(f"Using proxy without authentication: {self.proxy_host}:{self.proxy_port}")
+        
+        return proxy_url
+
+    def _configure_ca_bundle(self, session: requests.Session) -> None:
+        """Configure CA bundle for proxy SSL verification (applies to all auth methods)"""
+        if SSL_CA_BUNDLE_PATH:
+            session.verify = SSL_CA_BUNDLE_PATH
+            logger.info(f"Using CA bundle for SSL verification: {SSL_CA_BUNDLE_PATH}")
+        else:
+            session.verify = True
+            logger.info("Using system default CA bundle for SSL verification")
 
 
 # Backward compatibility - create a Kerberos-specific client

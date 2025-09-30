@@ -8,7 +8,6 @@ import requests
 from abc import ABC, abstractmethod
 from requests_kerberos import HTTPKerberosAuth, OPTIONAL
 from kerberos_poc.kerberos_service import KerberosService
-from requests.auth import HTTPBasicAuth
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +25,10 @@ class AuthenticationMethod(ABC):
     def get_auth_name(self) -> str:
         """Get the name of the authentication method"""
         pass
+    
+    def get_proxy_auth(self) -> tuple[str, str] | None:
+        """Get proxy authentication credentials if any"""
+        return None
 
 
 class KerberosAuthentication(AuthenticationMethod):
@@ -74,7 +77,7 @@ class KerberosAuthentication(AuthenticationMethod):
 class SSLCertificateAuthentication(AuthenticationMethod):
     """SSL certificate authentication"""
 
-    def __init__(self, cert_path: str, key_path: str, ca_bundle_path: str):
+    def __init__(self, cert_path: str, key_path: str | None = None, ca_bundle_path: str | None = None):
         """
         Initialize SSL certificate authentication
 
@@ -104,17 +107,8 @@ class SSLCertificateAuthentication(AuthenticationMethod):
                 session.cert = self.cert_path
                 logger.info(f"Using combined certificate file: {self.cert_path}")
 
-            # Set CA bundle for server verification
-            if self.ca_bundle_path:
-                session.verify = self.ca_bundle_path
-                logger.info(
-                    f"Using CA bundle for server verification: {self.ca_bundle_path}"
-                )
-            else:
-                # Use system default CA bundle
-                session.verify = True
-                logger.info("Using system default CA bundle for server verification")
-
+            # Note: CA bundle is now handled globally by ProxyClient
+            
             logger.info("Successfully configured SSL certificate authentication")
             return session
 
@@ -129,37 +123,40 @@ class SSLCertificateAuthentication(AuthenticationMethod):
 
 
 class UsernamePasswordAuthentication(AuthenticationMethod):
-    """Username and password authentication using HTTP Basic Auth"""
+    """Username and password authentication using HTTP Basic Auth for PROXY authentication"""
 
     def __init__(self, username: str, password: str):
         """
-        Initialize username/password authentication
+        Initialize username/password authentication for PROXY
 
         Args:
-            username: Username for authentication
-            password: Password for authentication
+            username: Username for PROXY authentication
+            password: Password for PROXY authentication
         """
         self.username = username
         self.password = password
 
     def authenticate_session(self, session: requests.Session) -> requests.Session:
-        """Configure session with username/password authentication"""
+        """Configure session with username/password PROXY authentication"""
         try:
-            logger.info("Configuring username/password authentication...")
+            logger.info("Configuring username/password PROXY authentication...")
 
-            # Configure HTTP Basic Authentication
-            session.auth = HTTPBasicAuth(self.username, self.password)
-
+            # No session configuration needed - credentials are provided via get_proxy_auth()
+            
             logger.info(
-                f"Successfully configured HTTP Basic Auth for user: {self.username}"
+                f"Successfully configured HTTP Basic PROXY Auth for user: {self.username}"
             )
             return session
 
         except Exception as e:
             logger.error(
-                f"Failed to configure username/password authentication: {str(e)}"
+                f"Failed to configure username/password PROXY authentication: {str(e)}"
             )
             raise
+    
+    def get_proxy_auth(self) -> tuple[str, str] | None:
+        """Get proxy authentication credentials"""
+        return (self.username, self.password)
 
     def get_auth_name(self) -> str:
         return "Username/Password (HTTP Basic Auth)"
@@ -208,32 +205,24 @@ class DigestAuthentication(AuthenticationMethod):
 
 
 class NoAuthentication(AuthenticationMethod):
-    """No authentication - just custom CA bundle for server verification"""
+    """No authentication - CA bundle is handled globally by ProxyClient"""
     
-    def __init__(self, ca_bundle_path: str | None = None):
+    def __init__(self):
         """
-        Initialize no authentication with optional CA bundle
-        
-        Args:
-            ca_bundle_path: Path to CA bundle file for server verification - if None, uses system default
+        Initialize no authentication
+        Note: CA bundle is now handled globally in ProxyClient for all auth methods
         """
-        self.ca_bundle_path = ca_bundle_path
+        pass
     
     def authenticate_session(self, session: requests.Session) -> requests.Session:
-        """Configure session with no authentication but custom CA bundle"""
+        """Configure session with no authentication"""
         try:
-            logger.info("Configuring no authentication (CA bundle verification only)...")
+            logger.info("Configuring no authentication...")
             
-            # Set CA bundle for server verification
-            if self.ca_bundle_path:
-                session.verify = self.ca_bundle_path
-                logger.info(f"Using CA bundle for server verification: {self.ca_bundle_path}")
-            else:
-                # Use system default CA bundle
-                session.verify = True
-                logger.info("Using system default CA bundle for server verification")
+            # No authentication configuration needed
+            # CA bundle verification is handled globally in ProxyClient
             
-            logger.info("Successfully configured no authentication with CA bundle verification")
+            logger.info("Successfully configured no authentication")
             return session
             
         except Exception as e:
@@ -241,4 +230,4 @@ class NoAuthentication(AuthenticationMethod):
             raise
     
     def get_auth_name(self) -> str:
-        return "No Authentication (CA Bundle Verification)"
+        return "No Authentication"
