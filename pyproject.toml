@@ -15,8 +15,11 @@ dependencies = [
     "pykerberos (>=1.2.4,<2.0.0)",
     "ruff (>=0.13.0,<0.14.0)",
     "python-dotenv (>=1.1.1,<2.0.0)",
-    "unique-web-search (>=1.3.2,<2.0.0)"
+    "pydantic-settings (>=2.11.0,<3.0.0)",
 ]
+
+[project.scripts]
+uq_web = "test_unique_web_search:main"
 
 
 [build-system]

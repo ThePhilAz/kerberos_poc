@@ -6,7 +6,7 @@ Replicates the functionality of the Java KerberosService class
 import os
 import gssapi
 import logging
-from kerberos_poc.config import KERBEROS_PRINCIPAL, KEYTAB_FILE_PATH, KRB5_CONF_PATH
+from kerberos_poc.archive.config import KERBEROS_PRINCIPAL, KEYTAB_FILE_PATH, KRB5_CONF_PATH
 
 logger = logging.getLogger(__name__)
 

@@ -12,11 +12,11 @@ Usage:
     # Username/password PROXY authentication (credentials sent to proxy, not target)
     python test_basic_auth.py --username proxy_user --password proxy_pass
     python test_basic_auth.py --username proxy_user --password proxy_pass --debug
-    
+
     # No authentication (just proxy connectivity with CA bundle)
     python test_basic_auth.py --no-auth --ca-bundle /path/to/ca-bundle.pem
     python test_basic_auth.py --no-auth  # Uses system default CA bundle
-    
+
 Note: CA bundle is applied globally by ProxyClient for SSL verification of proxy connections.
 """
 
@@ -62,8 +62,9 @@ def main():
         "--ca-bundle", help="Path to CA bundle file for server verification"
     )
     parser.add_argument(
-        "--no-auth", action="store_true", 
-        help="Skip username/password authentication, only use CA bundle verification"
+        "--no-auth",
+        action="store_true",
+        help="Skip username/password authentication, only use CA bundle verification",
     )
 
     args = parser.parse_args()
@@ -78,7 +79,9 @@ def main():
         # No authentication mode
         auth_details = {
             "Authentication": "None",
-            "CA Bundle": ca_bundle_path if ca_bundle_path else "System default (global)"
+            "CA Bundle": ca_bundle_path
+            if ca_bundle_path
+            else "System default (global)",
         }
         print_test_header(
             "🔓 No Authentication Test",
@@ -107,7 +110,9 @@ def main():
         auth_details = {
             "Username": username,
             "Auth Type": "PROXY Basic Auth",
-            "CA Bundle": ca_bundle_path if ca_bundle_path else "System default (global)"
+            "CA Bundle": ca_bundle_path
+            if ca_bundle_path
+            else "System default (global)",
         }
         print_test_header(
             "👤 Username/Password PROXY Authentication Test",

@@ -1,10 +1,33 @@
 import asyncio
-import os
 import sys
-from unique_web_search.settings import env_settings
-from httpx import AsyncClient
+from pathlib import Path
+import traceback
+from kerberos_poc.unique_web_search.google import GoogleSearch
+from kerberos_poc.unique_web_search.client import async_client
 import argparse
-from functools import partial
+
+SAVE_DIR = Path(__file__).parent / "logs"
+SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+def url_to_filename(url: str) -> str:
+    """
+    Convert a URL into a safe filename by replacing unsafe characters.
+    Strips scheme, replaces path/query separators, and limits length.
+    """
+    import re
+
+    # Strip scheme (http[s]://)
+    url_without_scheme = re.sub(r"^https?://", "", url)
+    # Replace slashes, question mark, ampersand, etc. with underscores
+    safe = re.sub(r"[\/\:\?\&\=\#\%]", "_", url_without_scheme)
+    # Remove characters not suitable for filenames
+    safe = re.sub(r"[^\w\-_.]", "_", safe)
+    # Truncate if very long
+    max_length = 100
+    if len(safe) > max_length:
+        safe = safe[:max_length]
+    return safe
+
 
 
 def reload_modules():
@@ -27,6 +50,7 @@ def safe_run(success_msg: str = "✅ Success", fail_msg: str = "❌ Fail"):
                 return result
             except Exception as e:
                 print(f"{fail_msg}: {e}")
+                traceback.print_exc()
 
         return wrapper
 
@@ -35,81 +59,92 @@ def safe_run(success_msg: str = "✅ Success", fail_msg: str = "❌ Fail"):
 
 @safe_run(success_msg="✅ URL Crawler Success", fail_msg="❌ URL Crawler Fail")
 async def test_url_crawler(
-    async_client: partial[AsyncClient], url: str = "https://www.google.com"
+    url: str = "https://www.google.com",
+    debug: bool = False,
 ):
     async with async_client() as client:
         response = await client.get(url)
-        # print(response.text)
+    
+    with open(SAVE_DIR / f"{url_to_filename(url)}.html", "w") as f:
+        f.write(response.text)
+    if debug:
+        print(response.text)
 
 
 @safe_run(success_msg="✅ Google Search Success", fail_msg="❌ Google Search Fail")
 async def test_google_search(
-    async_client: partial[AsyncClient], query: str = "test search"
+    query: str = "test search",
+    fetch_size: int = 10,
+    debug: bool = False,
 ):
-    params = {
-        "url": env_settings.google_search_api_endpoint,
-        "params": {
-            "q": query,
-            "cx": env_settings.google_search_engine_id,
-            "key": env_settings.google_search_api_key,
-        },
-    }
-
-    async with async_client() as client:
-        response = await client.get(**params)
-    # print(response.json())
+    google_search = GoogleSearch()
+    await google_search.search(query, fetch_size, debug)
 
 
-def test_set(
-    async_client: partial[AsyncClient],
-    url_to_fetch: str = "https://www.google.com",
-    query: str = "What are the recent news about the stock market?",
-):
-    asyncio.run(test_url_crawler(async_client, url_to_fetch))
-    asyncio.run(test_google_search(async_client, query))
+def main():
+    """Main entry point for the CLI."""
+    parser = argparse.ArgumentParser(
+        prog="uq_web",
+        description="Unique Web Search CLI - Test proxy configs and web search functionality",
+    )
+
+    # Create subparsers for commands
+    subparsers = parser.add_subparsers(
+        dest="command", help="Available commands", required=True
+    )
+
+    # Fetch command
+    fetch_parser = subparsers.add_parser("fetch", help="Fetch a URL through the proxy")
+    fetch_parser.add_argument(
+        "url",
+        type=str,
+        nargs="?",
+        default="https://www.google.com",
+        help="URL to fetch (default: https://www.google.com)",
+    )
+    fetch_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output to print response content",
+    )
+
+    # Search command
+    search_parser = subparsers.add_parser(
+        "search", help="Perform a Google search through the proxy"
+    )
+    search_parser.add_argument(
+        "query",
+        type=str,
+        nargs="?",
+        default="What are the recent news about the stock market?",
+        help="Search query (default: 'What are the recent news about the stock market?')",
+    )
+    search_parser.add_argument(
+        "--fetch-size",
+        type=int,
+        default=10,
+        help="Number of search results to fetch (default: 10)",
+    )
+    search_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output to print search results",
+    )
+
+    args = parser.parse_args()
+
+    # Execute the appropriate command
+    if args.command == "fetch":
+        print(f"🌐 Fetching URL: {args.url}")
+        asyncio.run(test_url_crawler(url=args.url, debug=args.debug))
+    elif args.command == "search":
+        print(f"🔍 Searching for: '{args.query}'")
+        asyncio.run(
+            test_google_search(
+                query=args.query, fetch_size=args.fetch_size, debug=args.debug
+            )
+        )
 
 
 if __name__ == "__main__":
-    # INSERT_YOUR_CODE
-
-    parser = argparse.ArgumentParser(
-        description="Test unique web search proxy configs."
-    )
-    parser.add_argument(
-        "--url", type=str, default="https://www.google.com", help="URL to fetch"
-    )
-    parser.add_argument(
-        "--query",
-        type=str,
-        default="What are the recent news about the stock market?",
-        help="Google search query",
-    )
-    parser.add_argument(
-        "--proxy_protocol",
-        type=str,
-        default="http",
-        help="Proxy protocol (http or https)",
-    )
-    args = parser.parse_args()
-
-    url_to_fetch = args.url
-    query = args.query
-    proxy_protocol = args.proxy_protocol
-
-    for auth_method in ["none", "username_password", "ssl_tls"]:
-        print(50 * "#")
-        print(f"Testing {auth_method} with {proxy_protocol} proxy protocol")
-        print(50 * "#")
-
-        reload_modules()
-        os.environ["PROXY_PROTOCOL"] = args.proxy_protocol
-        os.environ["PROXY_AUTH_MODE"] = auth_method
-
-        from unique_web_search.services.client.proxy_config import (
-            async_client,
-            env_settings,
-        )
-
-        test_set(async_client, url_to_fetch, query)
-
-        print("\n")
+    main()

@@ -1,3 +1,0 @@
-"""
-Kerberos Authentication Testing Package
-"""
